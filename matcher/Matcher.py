@@ -19,9 +19,9 @@ import dinov2.utils.utils as dinov2_utils
 from dinov2.data.transforms import MaybeToTensor, make_normalize_transform
 
 from matcher.k_means import kmeans_pp
-
+import matplotlib.pyplot as plt
 import random
-
+output_path = '/data/hotaru/projects/Matcher/output/tmp_image/'
 class Matcher:
     def __init__(
             self,
@@ -97,7 +97,13 @@ class Matcher:
         # process reference masks
         masks = reference_masks_verification(masks)
         masks = masks.permute(1, 0, 2, 3)  # ns, 1, h, w
-        ref_masks_pool = F.avg_pool2d(masks, (self.encoder.patch_size, self.encoder.patch_size))
+        ref_masks_pool = F.avg_pool2d(masks, (self.encoder.patch_size, self.encoder.patch_size)) #1,1,37,37
+
+        ref_masks_pool_np = ref_masks_pool[0].squeeze().cpu().numpy()
+        plt.imshow(ref_masks_pool_np)
+        plt.axis('off')
+        plt.savefig(output_path+"ref_masks_pool.png", bbox_inches='tight', pad_inches=0)
+
         nshot = ref_masks_pool.shape[0]
         ref_masks_pool = (ref_masks_pool > self.generator.predictor.model.mask_threshold).float()
         ref_masks_pool = ref_masks_pool.reshape(-1)  # nshot, N
@@ -139,9 +145,22 @@ class Matcher:
 
 
     def extract_img_feats(self):
+        
+        os.makedirs(output_path,exist_ok=True)
+
 
         ref_imgs = torch.cat([self.encoder_transform(rimg)[None, ...] for rimg in self.ref_imgs], dim=0)
         tar_img = torch.cat([self.encoder_transform(timg)[None, ...] for timg in self.tar_img], dim=0)
+
+        # 可视化原始图像
+        ref_img_np = ref_imgs.squeeze(0).permute(1, 2, 0).cpu().numpy()
+        plt.imshow(ref_img_np)
+        plt.axis('off')
+        plt.savefig(output_path+"ref_img.png", bbox_inches='tight', pad_inches=0)
+        tar_img_np = tar_img.squeeze(0).permute(1, 2, 0).cpu().numpy()
+        plt.imshow(tar_img_np)
+        plt.savefig(output_path+"tar_img.png", bbox_inches='tight', pad_inches=0)
+
 
         ref_feats = self.encoder.forward_features(ref_imgs.to(self.device))["x_prenorm"][:, 1:]
         tar_feat = self.encoder.forward_features(tar_img.to(self.device))["x_prenorm"][:, 1:]
@@ -151,6 +170,18 @@ class Matcher:
 
         ref_feats = F.normalize(ref_feats, dim=1, p=2) # normalize for cosine similarity
         tar_feat = F.normalize(tar_feat, dim=1, p=2)
+
+        # 可视化特征图
+        ref_np = ref_feats.cpu().numpy()
+        plt.imshow(ref_np, cmap='gray')
+        plt.savefig(output_path+"ref_np.png")
+        print(f"Image saved to {output_path}")
+
+        tar_np = tar_feat.cpu().numpy()
+        plt.imshow(tar_np, cmap='gray')
+        plt.savefig(output_path+"tar_np.png")
+        print(f"Image saved to {output_path}")
+
 
         return ref_feats, tar_feat
 

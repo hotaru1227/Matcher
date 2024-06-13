@@ -80,6 +80,7 @@ class DatasetCOCO(Dataset):
 
     def read_mask(self, name):
         mask_path = os.path.join(self.base_path, 'annotations', name)
+        print(mask_path)
         mask = torch.tensor(np.array(Image.open(mask_path[:mask_path.index('.jpg')] + '.png')))
         return mask
 
